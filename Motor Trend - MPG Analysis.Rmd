@@ -2,39 +2,141 @@
 title: "Regression Project - MPG Analysis for Motor Trend"
 author: "Conrad Wong"
 date: "November 7, 2015"
-output: pdf_document
+output: word_document
 ---
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Executive Summary
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+####This analysis will use the mtcars dataset to analyze if there is a difference in MPG between manual and automatic cars.  These are the steps to be followed:
+#### - Data transformation and exploratory data analysis to get a sense of the shape and relationship between the different variables
+#### - Find the regression model that maximizes percentage of explained variance in MPG
+#### - Drive conclusions for two questions:
+- Is an automatic or manual transmission better for MPG?
+- Quantify the MPG difference between automatic and manual transmissions
+
+
+## Data transformation and exploratory data analysis
 
 ```{r}
 
 library(ggplot2)
 library(GGally)
-str(mtcars)
+library(car)
+library(knitr)
 
 data <- mtcars
 
-data$trans <- ifelse(mtcars$am==0, "Auto", "Manual")
+data$trans <- as.factor(ifelse(mtcars$am==0, "Auto", "Manual"))
 data <- data[, -9]
+data$vs <- as.factor(ifelse(data$vs==0, "V", "Straight"))
+data$cyl <- as.factor(data$cyl)
+data$carb <- as.factor(data$carb)
+data$gear <- as.factor(data$gear)
 
-str(data)
-
-ggpairs(mtcars)
-
-fit.by.am <- lm(mpg~as.factor(am), data=mtcars)
-summary(fit.by.am)
-
-fit.by.all <- lm (mpg~., data=mtcars)
-summary(fit.by.all)
 ```
 
-You can also embed plots, for example:
+
+#### Key Findings: The pairs plot (Figure 1 in the Appendix) suggests there might be some colinearity between the variables in the mtcars dataset, as there are some pairs that are correlated, for example: 
+- disp and weight with corr= 0.89
+- disp and hp with corr = 0.79
+
+#### In addition, the boxplot (Figure 2 in the Appendix) suggests manual cars have higher mpg than automatic cars.
+
+## Model selection
+
+### Model 1: Fit of mpg by transmission
+
+```{r, echo=TRUE}
+
+fit.by.trans <- lm(mpg~trans, data=data)
+summary(fit.by.trans)$coefficients
+
+```
+
+#### Key Findings: Fitting by type of transmission, results in a statistical significant coefficient (p-value < 0.05), but the adjusted r2 is only 0.34.  Need to look for other variables that help explain a bigger percentage of the variance in mpg.  Next step is to fit a model with all variables
+
+### Model 2: Fit of mpg by all variables in the mtcars dataset
+
+```{r, echo=TRUE}
+fit.by.all <- lm (mpg~. , data=data)
+summary(fit.by.all)$coefficients
+
+vif(fit.by.all)
+
+```
+
+#### Key Findings: Fitting by all the variables in the mtcars dataset increases the adjusted r2 to 0.78, but non of the coefficients is statistical significant (all p-values are greater than 0.05).  Looking at the VIF values suggests that there is colinearity between the variables.  Next step is to remove the ones with a high GVIF^(1/(2*Df)) value.
+
+### Model 3: Fit of mpg by all variables where GVIF^(1/(2*Df)) <= 3.15
+
+```{r, echo=TRUE}
+
+#            GVIF Df GVIF^(1/(2*Df))
+#drat    6.809663  1        2.609533
+#vs      8.088166  1        2.843970
+#gear   50.852311  2        2.670408
+#carb  503.211851  5        1.862838
+#trans   9.930495  1        3.151269
+
+fit.by.some <- lm(mpg~ drat + vs + gear + carb + trans, data=data )
+summary(fit.by.some)$coefficients
+
+vif(fit.by.some)[,3]^2
+
+```
+
+#### Key Findings: The adjusted r2 decreases to 0.77, and we still have the problem of non statistical significant coefficients.  Next step is to fit the model by a stepwise algorithm.
+
+### Model 4: Fit of mpg following the stepwise algorithm
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+
+stepModel <- step(fit.by.all, k=log(dim(data)[1]), trace=FALSE)
+summary(stepModel)$coefficients
+```
+
+#### Key Findings: This approach results in the hightest adjusted r2: 0.83, and it finds three coefficients that are statistical significant (wt, qsec and transmission).  Next step is to run some diagnostics for this model
+
+### Diagnosis and residuals of stepwise model
+
+#### Please refer to Figure 3 in the Appendix
+
+#### Key Findings: There doesn't seem to be a pattern in the residuals, so the model is a good fit.  It would be good to work with a subject matter expert to look at the lower and upper residuals in the QQ plot, and understand why they have a slight deviation from the normal distribution.
+
+## Conclusion
+
+### Is an automatic or manual transmission better for MPG?
+
+#### - This analysis confirms that manual cars deliver more MPG than automatic cars 
+
+### Quantify the MPG difference between automatic and manual transmissions
+
+
+```{r, echo=TRUE}
+coef <- summary(stepModel)$coefficients
+coef[4,1] + c(-1, 1) * qt(.975, df = stepModel$df) * coef[4, 2]
+```
+
+#### - With 95% confidence, we estimate that manual cars deliver between 0.05 and 5.82 more MPG than automatic cars.
+
+## Appendix
+
+### Figure 1: GGPairs
+
+``` {r, echo=TRUE, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+ggpairs(data[, 2:11], lower=list(continuous="smooth"))
+```
+
+### Figure 2: Boxplot of MPG by Transmission
+
+``` {r, echo=TRUE, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+plot (mpg~trans, data=data)
+```
+
+### Figure 3: Residuals
 
 ```{r, echo=FALSE}
-plot(cars)
-```
+par(mfrow=c(2,2))
+plot(stepModel)
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```

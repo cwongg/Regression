@@ -1,0 +1,85 @@
+---
+title: "Regression Project - MPG Analysis for Motor Trend"
+author: "Conrad Wong"
+date: "November 7, 2015"
+output: html_document
+---
+
+```{r}
+
+library(ggplot2)
+library(GGally)
+library(car)
+
+str(mtcars)
+
+data <- mtcars
+
+data$trans <- as.factor(ifelse(mtcars$am==0, "Auto", "Manual"))
+data <- data[, -9]
+data$vs <- as.factor(ifelse(data$vs==0, "V", "Straight"))
+data$cyl <- as.factor(data$cyl)
+data$carb <- as.factor(data$carb)
+data$gear <- as.factor(data$gear)
+
+str(data)
+
+
+```
+
+``` {r, echo=FALSE, fig.width=12, fig.height=6}
+ggpairs(data, lower=list(continuous="smooth"))
+plot (mpg~trans, data=data)
+```
+
+
+#1. Regresion con la variable transmision
+
+```{r}
+
+fit.by.trans <- lm(mpg~trans, data=data)
+summary(fit.by.trans)
+
+```
+
+##R/ El coeficiente es significativo, pero el r2 ajustado es solo 0.34
+
+#2. Regresion con todas las variables
+
+```{r}
+fit.by.all <- lm (mpg~., data=data)
+summary(fit.by.all)
+vif(fit.by.all)
+```
+
+##R/ El r2 ajustado es 0.78, pero ninguno de los coeficientes es significativo
+
+#3. Regresion con las variables con el GVIF^(1/(2*Df)) <= 3.15: drat, vs, gear, carb y trans
+
+```{r}
+
+##             GVIF Df GVIF^(1/(2*Df))
+## drat    6.809663  1        2.609533
+## vs      8.088166  1        2.843970
+## gear   50.852311  2        2.670408
+## carb  503.211851  5        1.862838
+## trans   9.930495  1        3.151269
+
+fit.by.some <- lm(mpg~ drat + vs + gear + carb + trans, data=data )
+summary(fit.by.some)
+
+vif(fit.by.some)
+
+```
+
+##R/ Dos niveles del numero de carburadores son significativos, el r2 ajustado es 0.77
+
+#4. Regresion seleccionando el modelo con step
+
+```{r, echo=FALSE}
+
+stepModel <- step(fit.by.all, k=log(dim(data)[1]))
+summary(stepModel)
+```
+
+##R/ Encuentra tres coeficientes significativos (wt, qsec y transmision), con un r2 ajustado de .83
