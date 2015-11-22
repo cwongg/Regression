@@ -7,9 +7,9 @@ output: word_document
 
 ## Executive Summary
 
-####This analysis will use the mtcars dataset to analyze if there is a difference in MPG between manual and automatic cars.  These are the steps to be followed:
+####This analysis will use the mtcars dataset to determine if there is a difference in MPG between manual and automatic cars.  These are the steps to be followed:
 #### - Data transformation and exploratory data analysis to get a sense of the shape and relationship between the different variables
-#### - Find the regression model that maximizes percentage of explained variance in MPG
+#### - Find the regression model that maximizes the percentage of explained variance in MPG
 #### - Drive conclusions for two questions:
 - Is an automatic or manual transmission better for MPG?
 - Quantify the MPG difference between automatic and manual transmissions
@@ -92,7 +92,7 @@ vif(fit.by.some)[,3]^2
 ```{r, echo=TRUE, warning=FALSE, message=FALSE}
 
 stepModel <- step(fit.by.all, k=log(dim(data)[1]), trace=FALSE)
-summary(stepModel)$coefficients
+summary(stepModel)
 ```
 
 #### Key Findings: This approach results in the hightest adjusted r2: 0.83, and it finds three coefficients that are statistical significant (wt, qsec and transmission).  Next step is to run some diagnostics for this model
